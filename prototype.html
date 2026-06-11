@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocAgent — AI Документооборот</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2d3148;
+    --text: #e8eaf6; --muted: #7986a3; --accent: #5c6bc0; --accent-l: #7986cb;
+    --high: #ef5350; --high-bg: rgba(239,83,80,.12);
+    --med: #ffa726;  --med-bg: rgba(255,167,38,.12);
+    --low: #66bb6a;  --low-bg: rgba(102,187,106,.12);
+    --ok: #26a69a;   --r: 12px; --rs: 8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  .layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+
+  /* Sidebar */
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;gap:6px}
+  .logo{display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px}
+  .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#5c6bc0,#7c4dff);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .logo-text{font-weight:700;font-size:14px;line-height:1.2}
+  .logo-sub{color:var(--muted);font-size:11px}
+  .nav-sec{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:14px 10px 4px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--rs);cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s}
+  .nav-item:hover{background:var(--surface2);color:var(--text)}
+  .nav-item.active{background:rgba(92,107,192,.18);color:var(--accent-l)}
+  .nav-item .icon{font-size:15px;width:20px;text-align:center}
+  .emp-area{margin-top:auto}
+  .emp-card{background:var(--surface2);border-radius:var(--rs);padding:11px;display:flex;align-items:center;gap:9px}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#5c6bc0,#7c4dff);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+  .emp-name{font-size:12px;font-weight:600}
+  .emp-dept{font-size:11px;color:var(--muted)}
+  select.emp-sel{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--rs);padding:7px 10px;font-size:12px;width:100%;margin-top:7px;cursor:pointer;outline:none}
+
+  /* Main */
+  .main{display:flex;flex-direction:column;overflow:hidden}
+  .header{padding:18px 26px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .header-title{font-size:19px;font-weight:700}
+  .header-sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .upload-btn{background:linear-gradient(135deg,#5c6bc0,#7c4dff);color:#fff;border:none;padding:9px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:opacity .15s}
+  .upload-btn:hover{opacity:.85}
+
+  /* Stats */
+  .stats-row{padding:14px 26px;display:flex;gap:10px;border-bottom:1px solid var(--border)}
+  .stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 16px;cursor:pointer;transition:border-color .15s}
+  .stat:hover{border-color:var(--accent)}
+  .stat.active{border-color:var(--accent);background:rgba(92,107,192,.08)}
+  .stat-num{font-size:26px;font-weight:700;line-height:1}
+  .stat-lbl{font-size:11px;color:var(--muted);margin-top:4px}
+  .stat.h .stat-num{color:var(--high)}
+  .stat.m .stat-num{color:var(--med)}
+  .stat.l .stat-num{color:var(--low)}
+  .stat.r .stat-num{color:var(--accent-l)}
+
+  /* Content */
+  .content{flex:1;overflow-y:auto;padding:18px 26px;display:grid;grid-template-columns:1fr 300px;gap:18px;align-content:start}
+  .sec-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  .doc-list{display:flex;flex-direction:column;gap:8px}
+
+  /* Card */
+  .doc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+  .doc-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+  .doc-card.H::before{background:var(--high)}
+  .doc-card.M::before{background:var(--med)}
+  .doc-card.L::before{background:var(--low)}
+  .doc-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .doc-card.sel{border-color:var(--accent);background:rgba(92,107,192,.07)}
+  .doc-card.done{opacity:.45}
+  .doc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:7px}
+  .badges{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+  .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600}
+  .badge.H{background:var(--high-bg);color:var(--high)}
+  .badge.M{background:var(--med-bg);color:var(--med)}
+  .badge.L{background:var(--low-bg);color:var(--low)}
+  .badge.tp{background:rgba(121,134,203,.15);color:var(--accent-l)}
+  .badge.sig{background:rgba(255,202,40,.15);color:#ffca28}
+  .badge.leg{background:rgba(239,83,80,.15);color:var(--high)}
+  .badge.reg{background:rgba(239,83,80,.15);color:var(--high)}
+  .badge.rep{background:rgba(255,167,38,.15);color:var(--med)}
+  .badge.approved{background:rgba(38,166,154,.15);color:var(--ok)}
+  .badge.rejected{background:rgba(239,83,80,.15);color:var(--high)}
+  .badge.routed{background:rgba(92,107,192,.15);color:var(--accent-l)}
+  .doc-title{font-size:13px;font-weight:600;line-height:1.3}
+  .doc-from{font-size:11px;color:var(--muted);margin-top:2px}
+  .doc-sum{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .doc-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+  .doc-dl{font-size:11px}
+  .doc-dl.urg{color:var(--high);font-weight:600}
+  .doc-dl.warn{color:var(--med);font-weight:600}
+  .doc-dl.ok{color:var(--muted)}
+  .doc-amt{font-size:11px;color:var(--accent-l);font-weight:600}
+  .score-pill{font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:20px;flex-shrink:0}
+
+  /* Side panel */
+  .side{display:flex;flex-direction:column;gap:14px}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+  .detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:180px;color:var(--muted);text-align:center;font-size:13px}
+  .big-icon{font-size:36px;opacity:.35}
+  .detail-hdr{font-size:13px;font-weight:700;margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--border)}
+  .drow{display:flex;justify-content:space-between;gap:6px;padding:5px 0;font-size:12px}
+  .drow+.drow{border-top:1px solid var(--border)}
+  .dk{color:var(--muted);flex-shrink:0}
+  .dv{text-align:right;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+  .d-sum{font-size:12px;color:var(--muted);line-height:1.5;margin:9px 0;padding:9px;background:var(--surface2);border-radius:var(--rs)}
+  .act-btns{display:flex;gap:7px;margin-top:12px}
+  .btn{flex:1;padding:8px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s}
+  .btn:hover{opacity:.75}
+  .btn.appr{background:rgba(38,166,154,.2);color:var(--ok);border:1px solid rgba(38,166,154,.4)}
+  .btn.rej{background:rgba(239,83,80,.15);color:var(--high);border:1px solid rgba(239,83,80,.3)}
+  .btn.rer{background:rgba(92,107,192,.15);color:var(--accent-l);border:1px solid rgba(92,107,192,.3)}
+  .bar-sec{margin-top:0}
+  .br-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  .br-row{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:12px}
+  .br-lbl{width:90px;color:var(--muted);flex-shrink:0;font-size:11px}
+  .br-wrap{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+  .br-bar{height:100%;border-radius:3px;transition:width .5s}
+  .br-val{width:30px;text-align:right;font-weight:600;font-size:11px}
+  .rout-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;font-size:12px}
+  .rout-item+.rout-item{border-top:1px solid var(--border)}
+  .rout-arr{color:var(--accent-l);font-size:13px}
+  .rout-name{font-weight:600}
+  .rout-dest{color:var(--muted);font-size:11px;margin-top:1px}
+
+  /* Upload modal */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;align-items:center;justify-content:center}
+  .overlay.show{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:26px;width:380px;max-width:92vw}
+  .modal-title{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between}
+  .modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1}
+  .drop-zone{border:2px dashed var(--border);border-radius:var(--r);padding:36px;text-align:center;cursor:pointer;transition:all .15s}
+  .drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:rgba(92,107,192,.06)}
+  .drop-icon{font-size:32px;margin-bottom:6px}
+  .drop-text{font-size:13px;color:var(--muted)}
+  .drop-sub{font-size:11px;color:var(--muted);margin-top:3px}
+  .analyzing{text-align:center;padding:24px}
+  .spinner{display:inline-block;width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:10px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  input[type=file]{display:none}
+
+  /* Toast */
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 16px;font-size:13px;z-index:200;display:none;animation:sl .3s ease}
+  .toast.show{display:block}
+  @keyframes sl{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  ::-webkit-scrollbar{width:5px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    <div><div class="logo-text">DocAgent</div><div class="logo-sub">AI Документооборот</div></div>
+  </div>
+  <div class="nav-sec">Навигация</div>
+  <div class="nav-item active"><span class="icon">📥</span>Входящие</div>
+  <div class="nav-item"><span class="icon">✅</span>Согласованные</div>
+  <div class="nav-item"><span class="icon">↩️</span>Перенаправленные</div>
+  <div class="nav-item"><span class="icon">📊</span>Аналитика</div>
+  <div class="nav-item"><span class="icon">⚙️</span>Зоны ответственности</div>
+
+  <div class="emp-area">
+    <div class="nav-sec">Сотрудник</div>
+    <div class="emp-card">
+      <div class="avatar" id="sAvatar">ИА</div>
+      <div><div class="emp-name" id="sName">Иванова А.В.</div><div class="emp-dept" id="sDept">Юридический отдел</div></div>
+    </div>
+    <select class="emp-sel" onchange="switchEmp(this.value)">
+      <option value="0">Иванова А.В. — Юридический</option>
+      <option value="1">Петров Д.М. — Финансовый</option>
+      <option value="2">Сидорова Е.В. — Снабжение</option>
+    </select>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="header">
+    <div>
+      <div class="header-title">Входящие документы</div>
+      <div class="header-sub" id="hSub">Загрузка…</div>
+    </div>
+    <button class="upload-btn" onclick="openModal()">⬆ Загрузить документ</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat active" id="sAll" onclick="filter('ALL')"><div class="stat-num" id="cAll">0</div><div class="stat-lbl">Всего</div></div>
+    <div class="stat h" id="sH" onclick="filter('H')"><div class="stat-num" id="cH">0</div><div class="stat-lbl">🔴 Высокий</div></div>
+    <div class="stat m" id="sM" onclick="filter('M')"><div class="stat-num" id="cM">0</div><div class="stat-lbl">🟡 Средний</div></div>
+    <div class="stat l" id="sL" onclick="filter('L')"><div class="stat-num" id="cL">0</div><div class="stat-lbl">🟢 Низкий</div></div>
+    <div class="stat r" id="sR" onclick="filter('R')"><div class="stat-num" id="cR">0</div><div class="stat-lbl">↩ Перенаправлено</div></div>
+  </div>
+
+  <div class="content">
+    <div>
+      <div class="sec-title" id="secTitle">Мои документы</div>
+      <div class="doc-list" id="docList"></div>
+    </div>
+    <div class="side">
+      <div class="panel" id="detailPanel">
+        <div class="detail-empty"><div class="big-icon">📄</div><div>Выберите документ<br>для просмотра</div></div>
+      </div>
+      <div class="panel bar-sec" id="barPanel" style="display:none">
+        <div class="br-title">Расчёт приоритета</div>
+        <div id="barRows"></div>
+      </div>
+      <div class="panel" id="routPanel" style="display:none">
+        <div class="br-title">Перенаправленные</div>
+        <div id="routList"></div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-title">
+      Загрузить документ
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalBody">
+      <div class="drop-zone" id="dz"
+           onclick="document.getElementById('fi').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="onDrop(event)">
+        <div class="drop-icon">📁</div>
+        <div class="drop-text">Перетащите или нажмите для выбора</div>
+        <div class="drop-sub">PDF, DOCX, EML, TXT</div>
+      </div>
+      <input type="file" id="fi" accept=".pdf,.docx,.eml,.txt" onchange="doUpload(this.files[0])">
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Data ────────────────────────────────────────────────────────────────────
+const today = new Date(); today.setHours(0,0,0,0);
+const addDays = n => { const d = new Date(today); d.setDate(d.getDate()+n); return d; };
+const fmtD = d => d ? d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}) : null;
+
+const EMPS = [
+  {id:'ivanova', name:'Иванова А.В.', fullName:'Иванова Анна Владимировна', dept:'Юридический отдел', av:'ИА'},
+  {id:'petrov',  name:'Петров Д.М.',  fullName:'Петров Дмитрий Михайлович',  dept:'Финансовый отдел',  av:'ПД'},
+  {id:'sidor',   name:'Сидорова Е.В.',fullName:'Сидорова Елена Викторовна', dept:'Отдел снабжения',   av:'СЕ'},
+];
+
+const ALL_DOCS = [
+  {id:'d1', fn:'pretenziya_2026_47.pdf',      type:'Претензия',         from:'ООО «Арбитражный партнёр»',    subj:'Претензия по договору поставки №2025-153',          sum:'Требование погасить задолженность 1 750 000 руб. по договору поставки. В случае отказа — обращение в Арбитражный суд г. Москвы.',  amts:['1 750 000 руб.','3 500 000 руб.'], dl:addDays(1),  sig:false, leg:true,  reg:false, rep:false, tier:'key',     pri:'H', score:.91, owner:0, st:'new'},
+  {id:'d2', fn:'predpisanie_FNS.pdf',          type:'Предписание',       from:'ИФНС России №7 по г. Москве',  subj:'Предписание о предоставлении пояснений по НДС',     sum:'ФНС выявила расхождения в декларации по НДС за II квартал 2026. Требует пояснений и документов в течение 1 рабочего дня.',          amts:[],                                dl:addDays(0),  sig:false, leg:false, reg:true,  rep:false, tier:'key',     pri:'H', score:.88, owner:0, st:'new'},
+  {id:'d3', fn:'dogovor_metallstroy.docx',     type:'Договор поставки',  from:'ООО «МеталлСтрой»',            subj:'Договор поставки металлопроката №2026-201',         sum:'Договор на поставку арматуры и швеллера на сумму 2 800 000 руб. Требует подписи. Аванс 50% в течение 3 дней с момента подписания.',   amts:['2 800 000 руб.'],                dl:addDays(3),  sig:true,  leg:false, reg:false, rep:false, tier:'regular', pri:'H', score:.72, owner:0, st:'new'},
+  {id:'d4', fn:'schet_techsnab.pdf',           type:'Счёт на оплату',    from:'ООО «ТехСнаб»',                subj:'Счёт №2026-0589 на офисное оборудование',           sum:'Счёт на поставку 15 единиц офисного оборудования на сумму 485 000 руб. включая НДС 20%.',                                           amts:['485 000 руб.'],                  dl:addDays(10), sig:false, leg:false, reg:false, rep:false, tier:'regular', pri:'M', score:.44, owner:1, st:'new'},
+  {id:'d5', fn:'zayavka_romashka.eml',         type:'Заявка на поставку',from:'ГК «Ромашка»',                 subj:'Заявка на поставку комплектующих — повторно',       sum:'Повторная заявка на поставку подшипников, уплотнительных колец и смазочных материалов. Ожидают подтверждения срока поставки.',      amts:['190 000 руб.'],                  dl:null,        sig:false, leg:false, reg:false, rep:true,  tier:'regular', pri:'M', score:.38, owner:2, st:'new'},
+  {id:'d6', fn:'pismo_consulting.eml',         type:'Информационное письмо',from:'ООО «Консалтинг Плюс»',    subj:'Уведомление об изменении юридического адреса',      sum:'Компания изменяет юридический адрес с 01.07.2026. Банковские реквизиты остаются прежними. Действий не требует.',                    amts:[],                                dl:null,        sig:false, leg:false, reg:false, rep:false, tier:'unknown', pri:'L', score:.08, owner:0, st:'new'},
+];
+
+const PL = {H:'🔴 Высокий', M:'🟡 Средний', L:'🟢 Низкий'};
+const BL = {deadline:'Срок',doc_type:'Тип',amount:'Сумма',counterparty:'Контрагент',repeat:'Повтор'};
+const BC = {deadline:'#ef5350',doc_type:'#7986cb',amount:'#ffa726',counterparty:'#26a69a',repeat:'#ab47bc'};
+
+let curEmp = 0, curFilter = 'ALL', selId = null;
+const stMap = {};
+
+function dlClass(d) {
+  if (!d) return 'ok';
+  const days = Math.round((d - today) / 86400000);
+  return days <= 0 ? 'urg' : days <= 3 ? 'warn' : 'ok';
+}
+function dlStr(d) {
+  if (!d) return '📅 Срок не указан';
+  const days = Math.round((d - today) / 86400000);
+  const s = fmtD(d);
+  if (days < 0) return `📅 ${s} (просрочен!)`;
+  if (days === 0) return `📅 ${s} (сегодня!)`;
+  if (days === 1) return `📅 ${s} (завтра)`;
+  return `📅 ${s} (через ${days} дн.)`;
+}
+
+function myDocs() { return ALL_DOCS.filter(d => d.owner === curEmp); }
+function routedDocs() { return ALL_DOCS.filter(d => d.owner !== curEmp); }
+
+function render() {
+  const mine = myDocs();
+  const routed = routedDocs();
+  const ord = {H:0,M:1,L:2};
+
+  document.getElementById('cAll').textContent = mine.length;
+  document.getElementById('cH').textContent = mine.filter(d=>d.pri==='H').length;
+  document.getElementById('cM').textContent = mine.filter(d=>d.pri==='M').length;
+  document.getElementById('cL').textContent = mine.filter(d=>d.pri==='L').length;
+  document.getElementById('cR').textContent = routed.length;
+
+  const emp = EMPS[curEmp];
+  document.getElementById('hSub').textContent = `${emp.fullName} · ${emp.dept} · ${mine.length} документов`;
+
+  let show = curFilter === 'R' ? routed : mine;
+  if (curFilter !== 'ALL' && curFilter !== 'R') show = show.filter(d => d.pri === curFilter);
+  show = [...show].sort((a,b) => ord[a.pri]-ord[b.pri] || b.score-a.score);
+  document.getElementById('secTitle').textContent = curFilter === 'R' ? 'Перенаправленные документы' : 'Мои документы';
+
+  const list = document.getElementById('docList');
+  list.innerHTML = show.length ? show.map(renderCard).join('') :
+    '<div style="color:var(--muted);text-align:center;padding:40px">Документов нет</div>';
+
+  if (selId) {
+    document.getElementById('card-'+selId)?.classList.add('sel');
+    const d = ALL_DOCS.find(x=>x.id===selId);
+    if (d) showDetail(d);
+  }
+
+  // Routing panel
+  const rp = document.getElementById('routPanel');
+  if (routed.length && curFilter !== 'R') {
+    rp.style.display = 'block';
+    document.getElementById('routList').innerHTML = routed.map(d => `
+      <div class="rout-item">
+        <span class="rout-arr">→</span>
+        <div><div class="rout-name">${d.type}</div><div class="rout-dest">→ ${EMPS[d.owner].name} · ${EMPS[d.owner].dept}</div></div>
+      </div>`).join('');
+  } else { rp.style.display = 'none'; }
+}
+
+function renderCard(d) {
+  const st = stMap[d.id] || d.st;
+  const done = st==='approved'||st==='rejected';
+  const stBadge = st==='approved' ? '<span class="badge approved">✓ Согласован</span>'
+    : st==='rejected' ? '<span class="badge rejected">✗ Отклонён</span>'
+    : '';
+  return `
+  <div class="doc-card ${d.pri} ${done?'done':''}" id="card-${d.id}" onclick="sel('${d.id}')">
+    <div class="badges">
+      <span class="badge ${d.pri}">${PL[d.pri]}</span>
+      <span class="badge tp">${d.type}</span>
+      ${d.leg?'<span class="badge leg">⚖️ Судебный</span>':''}
+      ${d.reg?'<span class="badge reg">🏛️ Регуляторный</span>':''}
+      ${d.sig?'<span class="badge sig">✍️ Подпись</span>':''}
+      ${d.rep?'<span class="badge rep">🔁 Повтор</span>':''}
+      ${stBadge}
+    </div>
+    <div class="doc-top">
+      <div>
+        <div class="doc-title">${d.subj}</div>
+        <div class="doc-from">от ${d.from}</div>
+      </div>
+      <div class="score-pill">${Math.round(d.score*100)}%</div>
+    </div>
+    <div class="doc-sum">${d.sum}</div>
+    <div class="doc-foot">
+      <div class="doc-dl ${dlClass(d.dl)}">${dlStr(d.dl)}</div>
+      <div class="doc-amt">${d.amts[0]||''}</div>
+    </div>
+  </div>`;
+}
+
+function sel(id) {
+  document.querySelectorAll('.doc-card').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('card-'+id)?.classList.add('sel');
+  selId = id;
+  const d = ALL_DOCS.find(x=>x.id===id);
+  if (d) showDetail(d);
+}
+
+function showDetail(d) {
+  const dp = document.getElementById('detailPanel');
+  const st = stMap[d.id] || d.st;
+  const isOwner = d.owner === curEmp;
+  const tl = d.dl ? d.dl.toLocaleDateString('ru-RU') : '—';
+  const amts = d.amts.join(', ') || '—';
+  const dlC = dlClass(d.dl);
+
+  dp.innerHTML = `
+    <div class="detail-hdr">${d.type}</div>
+    <div class="drow"><span class="dk">Отправитель</span><span class="dv">${d.from}</span></div>
+    <div class="drow"><span class="dk">Срок</span><span class="dv" style="color:${dlC==='urg'?'var(--high)':dlC==='warn'?'var(--med)':'inherit'}">${tl}</span></div>
+    <div class="drow"><span class="dk">Суммы</span><span class="dv" style="color:var(--accent-l)">${amts}</span></div>
+    <div class="drow"><span class="dk">Файл</span><span class="dv" style="color:var(--muted);font-size:10px">${d.fn}</span></div>
+    <div class="d-sum">${d.sum}</div>
+    ${isOwner && st==='new' ? `<div class="act-btns">
+      <button class="btn appr" onclick="act('${d.id}','approved')">✓ Согласовать</button>
+      <button class="btn rej" onclick="act('${d.id}','rejected')">✗ Отклонить</button>
+      <button class="btn rer" onclick="act('${d.id}','routed')">↩ Перенаправить</button>
+    </div>` : isOwner ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">Статус: <b>${{approved:'Согласован ✓',rejected:'Отклонён ✗',routed:'Перенаправлен ↩'}[st]||st}</b></div>`
+    : `<div style="margin-top:10px;font-size:12px;color:var(--muted)">↩ Перенаправлен → <b>${EMPS[d.owner].name}</b></div>`}
+  `;
+
+  // Breakdown bars
+  const fakeScore = {
+    deadline: d.dl ? Math.min(1, Math.max(0.04, 1-(d.dl-today)/2592000000)) : 0.02,
+    doc_type: d.leg||d.reg ? 1 : ['Договор','Договор поставки','Акт'].includes(d.type) ? 0.5 : 0.1,
+    amount: d.amts.length ? Math.min(1, parseInt((d.amts[0]||'').replace(/\D/g,''))/5000000) : 0,
+    counterparty: d.tier==='key' ? 1 : d.tier==='regular' ? 0.5 : 0.1,
+    repeat: d.rep ? 0.5 : 0.02,
+  };
+  const bp = document.getElementById('barPanel');
+  bp.style.display = 'block';
+  document.getElementById('barRows').innerHTML = Object.entries(fakeScore).map(([k,v]) => `
+    <div class="br-row">
+      <div class="br-lbl">${BL[k]}</div>
+      <div class="br-wrap"><div class="br-bar" style="width:${v*100}%;background:${BC[k]}"></div></div>
+      <div class="br-val" style="color:${BC[k]}">${Math.round(v*100)}%</div>
+    </div>`).join('');
+}
+
+function act(id, newSt) {
+  stMap[id] = newSt;
+  const labels = {approved:'Согласован ✓', rejected:'Отклонён ✗', routed:'Перенаправлен ↩'};
+  toast(labels[newSt]);
+  render();
+}
+
+function filter(f) {
+  curFilter = f;
+  document.querySelectorAll('.stat').forEach(s=>s.classList.remove('active'));
+  const mp = {ALL:'sAll',H:'sH',M:'sM',L:'sL',R:'sR'};
+  document.getElementById(mp[f])?.classList.add('active');
+  render();
+}
+
+function switchEmp(idx) {
+  curEmp = +idx; selId = null;
+  const e = EMPS[curEmp];
+  document.getElementById('sAvatar').textContent = e.av;
+  document.getElementById('sName').textContent = e.name;
+  document.getElementById('sDept').textContent = e.dept;
+  document.getElementById('detailPanel').innerHTML = '<div class="detail-empty"><div class="big-icon">📄</div><div>Выберите документ</div></div>';
+  document.getElementById('barPanel').style.display='none';
+  curFilter='ALL';
+  document.querySelectorAll('.stat').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sAll').classList.add('active');
+  render();
+}
+
+// Upload simulation
+function openModal() { document.getElementById('overlay').classList.add('show'); }
+function closeModal() {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('modalBody').innerHTML = `
+    <div class="drop-zone" id="dz" onclick="document.getElementById('fi').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="onDrop(event)">
+      <div class="drop-icon">📁</div>
+      <div class="drop-text">Перетащите или нажмите для выбора</div>
+      <div class="drop-sub">PDF, DOCX, EML, TXT</div>
+    </div>
+    <input type="file" id="fi" accept=".pdf,.docx,.eml,.txt" onchange="doUpload(this.files[0])">`;
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dz')?.classList.remove('drag');
+  if (e.dataTransfer.files[0]) doUpload(e.dataTransfer.files[0]);
+}
+function doUpload(file) {
+  if (!file) return;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="analyzing"><div class="spinner"></div>
+    <div style="font-size:13px;font-weight:600">Анализирую документ...</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:5px">${file.name}</div></div>`;
+
+  setTimeout(() => {
+    const types = ['Договор','Счёт на оплату','Акт','Письмо','Претензия'];
+    const senders = ['ООО «Новый Партнёр»','ИП Сидоров К.В.','АО «Технологии»'];
+    const pris = ['H','M','L'];
+    const t = types[Math.floor(Math.random()*types.length)];
+    const p = pris[Math.floor(Math.random()*pris.length)];
+    const nd = {
+      id:'u'+Date.now(), fn:file.name,
+      type:t, from:senders[Math.floor(Math.random()*3)],
+      subj:`${t} — загружен через дашборд`,
+      sum:`Документ типа «${t}» проанализирован AI-агентом. Требует рассмотрения согласно профилю зоны ответственности.`,
+      amts:[`${(Math.floor(Math.random()*500)+10)*1000} руб.`],
+      dl: addDays(Math.floor(Math.random()*14)+1),
+      sig: Math.random()>.5, leg:t==='Претензия', reg:false, rep:false, tier:'regular',
+      pri:p, score: p==='H'?.7+Math.random()*.25 : p==='M'?.35+Math.random()*.25 : Math.random()*.3,
+      owner:curEmp, st:'new'
+    };
+    ALL_DOCS.unshift(nd);
+    closeModal();
+    toast(`Документ загружен: ${PL[p]}`);
+    render();
+    setTimeout(()=>sel(nd.id),200);
+  }, 2200);
+}
+document.getElementById('overlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+render();
+</script>
+</body>
+</html>
